@@ -16,6 +16,7 @@ import ru.hits.recipe_book.dto.DishIngredientRequest;
 import ru.hits.recipe_book.dto.DishIngredientResponse;
 import ru.hits.recipe_book.dto.DishRequest;
 import ru.hits.recipe_book.dto.DishResponse;
+import ru.hits.recipe_book.exception.EmptyIngredientsException;
 import ru.hits.recipe_book.exception.NotFoundException;
 import ru.hits.recipe_book.exception.ValidationException;
 import ru.hits.recipe_book.model.DietFlag;
@@ -84,6 +85,7 @@ public class DishService {
     }
 
     public CalculatedNutritionResponse calculate(List<DishIngredientRequest> ingredientRequests) {
+        validateIngredientsNotEmpty(ingredientRequests);
         List<DishIngredient> ingredients = buildIngredients(ingredientRequests);
         Nutrition nutrition = calculateNutrition(ingredients);
         return new CalculatedNutritionResponse(nutrition.calories(), nutrition.proteins(), nutrition.fats(), nutrition.carbohydrates());
@@ -101,6 +103,7 @@ public class DishService {
             throw new ValidationException("Dish category is required if the name does not contain a category macro");
         }
 
+        validateIngredientsNotEmpty(request.ingredients());
         List<DishIngredient> ingredients = buildIngredients(request.ingredients());
         Nutrition calculated = calculateNutrition(ingredients);
         double calories = request.calories() == null ? calculated.calories() : request.calories();
@@ -143,6 +146,12 @@ public class DishService {
             ingredients.add(ingredient);
         });
         return ingredients;
+    }
+
+    private void validateIngredientsNotEmpty(List<DishIngredientRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            throw new EmptyIngredientsException();
+        }
     }
 
     private Nutrition calculateNutrition(List<DishIngredient> ingredients) {
