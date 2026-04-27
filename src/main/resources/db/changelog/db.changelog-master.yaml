@@ -1,0 +1,237 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-recipe-book-schema
+      author: codex
+      changes:
+        - createTable:
+            tableName: products
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: calories
+                  type: double
+                  constraints:
+                    nullable: false
+              - column:
+                  name: proteins
+                  type: double
+                  constraints:
+                    nullable: false
+              - column:
+                  name: fats
+                  type: double
+                  constraints:
+                    nullable: false
+              - column:
+                  name: carbohydrates
+                  type: double
+                  constraints:
+                    nullable: false
+              - column:
+                  name: composition
+                  type: text
+              - column:
+                  name: category
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: cooking_requirement
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+        - createTable:
+            tableName: product_photos
+            columns:
+              - column:
+                  name: product_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: photo_url
+                  type: varchar(1000)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: product_photos
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_product_photos_product
+            onDelete: CASCADE
+        - createTable:
+            tableName: product_flags
+            columns:
+              - column:
+                  name: product_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: flag
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: product_flags
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_product_flags_product
+            onDelete: CASCADE
+        - createTable:
+            tableName: dishes
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: calories
+                  type: double
+                  constraints:
+                    nullable: false
+              - column:
+                  name: proteins
+                  type: double
+                  constraints:
+                    nullable: false
+              - column:
+                  name: fats
+                  type: double
+                  constraints:
+                    nullable: false
+              - column:
+                  name: carbohydrates
+                  type: double
+                  constraints:
+                    nullable: false
+              - column:
+                  name: serving_size_grams
+                  type: double
+                  constraints:
+                    nullable: false
+              - column:
+                  name: category
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+        - createTable:
+            tableName: dish_photos
+            columns:
+              - column:
+                  name: dish_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: photo_url
+                  type: varchar(1000)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: dish_photos
+            baseColumnNames: dish_id
+            referencedTableName: dishes
+            referencedColumnNames: id
+            constraintName: fk_dish_photos_dish
+            onDelete: CASCADE
+        - createTable:
+            tableName: dish_flags
+            columns:
+              - column:
+                  name: dish_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: flag
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: dish_flags
+            baseColumnNames: dish_id
+            referencedTableName: dishes
+            referencedColumnNames: id
+            constraintName: fk_dish_flags_dish
+            onDelete: CASCADE
+        - createTable:
+            tableName: dish_ingredients
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: dish_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: product_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: quantity_grams
+                  type: double
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: dish_ingredients
+            baseColumnNames: dish_id
+            referencedTableName: dishes
+            referencedColumnNames: id
+            constraintName: fk_dish_ingredients_dish
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: dish_ingredients
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_dish_ingredients_product
+  - changeSet:
+      id: 002-normalize-composition-type
+      author: codex
+      changes:
+        - modifyDataType:
+            tableName: products
+            columnName: composition
+            newDataType: varchar(5000)

@@ -1,0 +1,20 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: recipe_book
+  datasource:
+    url: jdbc:postgresql://localhost:5432/RecipeBook
+    username: postgres
+    password: 363639
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
