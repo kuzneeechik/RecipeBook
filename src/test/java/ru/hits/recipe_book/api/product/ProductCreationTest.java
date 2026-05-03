@@ -1,7 +1,5 @@
-package ru.hits.recipe_book.api;
+package ru.hits.recipe_book.api.product;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,29 +13,23 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-@DisplayName("Product update API")
-public class ProductUpdateTest {
+@DisplayName("Product create API")
+public class ProductCreationTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
     @Test
-    @DisplayName("should update product with valid data")
-    void shouldUpdateProductWithValidData() throws Exception {
-        String productId = createProductAndReturnId();
-
+    @DisplayName("should create product with valid data")
+    void shouldCreateProductWithValidData() throws Exception {
         String requestBody = buildProductRequest(
                 "Свёкла",
                 "[\"https://example.com/photo-1.jpg\"]",
@@ -47,11 +39,10 @@ public class ProductUpdateTest {
                 1.5
         );
 
-        mockMvc.perform(put("/api/products/{id}", productId)
+        mockMvc.perform(post("/api/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId))
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value("Свёкла"))
                 .andExpect(jsonPath("$.photos").isArray())
                 .andExpect(jsonPath("$.photos.length()").value(1))
@@ -72,37 +63,15 @@ public class ProductUpdateTest {
                 )));
     }
 
-    @Test
-    @DisplayName("should return Not Found when updating unknown product")
-    void shouldReturnNotFoundWhenUpdatingUnknownProduct() throws Exception {
-        String id = UUID.randomUUID().toString();
-
-        String requestBody = buildProductRequest(
-                "Свёкла",
-                "[]",
-                43.0,
-                0.1,
-                1.0,
-                1.5
-        );
-
-        mockMvc.perform(put("/api/products/{id}", id)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isNotFound());
-    }
-
     @ParameterizedTest
     @CsvSource({
             "Як",
             "Мак"
     })
-    @DisplayName("should update product with valid name length")
-    void shouldUpdateProductWithValidName(
+    @DisplayName("should create product with valid name length")
+    void shouldCreateProductWithValidName(
             String name
     ) throws Exception {
-        String productId = createProductAndReturnId();
-
         String requestBody = buildProductRequest(
                 name,
                 "[]",
@@ -112,19 +81,16 @@ public class ProductUpdateTest {
                 1.5
         );
 
-        mockMvc.perform(put("/api/products/{id}", productId)
+        mockMvc.perform(post("/api/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId))
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value(name));
     }
 
     @Test
     @DisplayName("should return Bad Request when name length less than two")
     void shouldReturnBadRequestWhenNameLengthLessThanTwo() throws Exception {
-        String productId = createProductAndReturnId();
-
         String requestBody = buildProductRequest(
                 "Я",
                 "[]",
@@ -134,7 +100,7 @@ public class ProductUpdateTest {
                 1.5
         );
 
-        mockMvc.perform(put("/api/products/{id}", productId)
+        mockMvc.perform(post("/api/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest())
@@ -150,10 +116,8 @@ public class ProductUpdateTest {
             "4",
             "5"
     })
-    @DisplayName("should update product with valid number of photos")
-    void shouldUpdateProductWithValidNumberOfPhotos(int numberOfPhotos) throws Exception {
-        String productId = createProductAndReturnId();
-
+    @DisplayName("should create product with valid number of photos")
+    void shouldCreateProductWithValidNumberOfPhotos(int numberOfPhotos) throws Exception {
         var expectedPhotos = buildExpectedPhotosList(numberOfPhotos);
 
         String requestBody = buildProductRequest(
@@ -165,11 +129,10 @@ public class ProductUpdateTest {
                 1.5
         );
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId))
+        mockMvc.perform(post("/api/products")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.photos").isArray())
                 .andExpect(jsonPath("$.photos.length()").value(numberOfPhotos))
                 .andExpect(jsonPath("$.photos").value(expectedPhotos));
@@ -178,8 +141,6 @@ public class ProductUpdateTest {
     @Test
     @DisplayName("should return Bad Request when number of photos more than five")
     void shouldReturnBadRequestWhenNumberOfPhotosMoreThanFive() throws Exception {
-        String productId = createProductAndReturnId();
-
         String requestBody = buildProductRequest(
                 "Свёкла",
                 buildPhotosList(6),
@@ -189,9 +150,9 @@ public class ProductUpdateTest {
                 1.5
         );
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+        mockMvc.perform(post("/api/products")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation error"))
                 .andExpect(jsonPath("$.detail").value("Request body validation failed"))
@@ -203,10 +164,8 @@ public class ProductUpdateTest {
             "0",
             "0.1"
     })
-    @DisplayName("should update product with valid number of calories")
-    void shouldUpdateProductWithValidNumberOfCalories(double numberOfCalories) throws Exception {
-        String productId = createProductAndReturnId();
-
+    @DisplayName("should create product with valid number of calories")
+    void shouldCreateProductWithValidNumberOfCalories(double numberOfCalories) throws Exception {
         String requestBody = buildProductRequest(
                 "Свёкла",
                 "[]",
@@ -216,19 +175,16 @@ public class ProductUpdateTest {
                 1.5
         );
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId))
+        mockMvc.perform(post("/api/products")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.calories").value(numberOfCalories));
     }
 
     @Test
     @DisplayName("should return Bad Request when number of calories less than zero")
     void shouldReturnBadRequestWhenNumberOfCaloriesLessThanZero() throws Exception {
-        String productId = createProductAndReturnId();
-
         String requestBody = buildProductRequest(
                 "Свёкла",
                 "[]",
@@ -238,9 +194,9 @@ public class ProductUpdateTest {
                 1.5
         );
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+        mockMvc.perform(post("/api/products")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation error"))
                 .andExpect(jsonPath("$.detail").value("Request body validation failed"))
@@ -254,10 +210,8 @@ public class ProductUpdateTest {
             "99.9",
             "100"
     })
-    @DisplayName("should update product with valid number of proteins")
-    void shouldUpdateProductWithValidNumberOfProteins(double numberOfProteins) throws Exception {
-        String productId = createProductAndReturnId();
-
+    @DisplayName("should create product with valid number of proteins")
+    void shouldCreateProductWithValidNumberOfProteins(double numberOfProteins) throws Exception {
         String requestBody = buildProductRequest(
                 "Свёкла",
                 "[]",
@@ -265,13 +219,12 @@ public class ProductUpdateTest {
                 numberOfProteins,
                 0,
                 0
-        );
+        );;
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId))
+        mockMvc.perform(post("/api/products")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.proteins").value(numberOfProteins));
     }
 
@@ -284,8 +237,6 @@ public class ProductUpdateTest {
     void shouldReturnBadRequestWhenNumberOfProteinsLessThanZeroOrMoreThanOneHundred(
             double numberOfProteins
     ) throws Exception {
-        String productId = createProductAndReturnId();
-
         String requestBody = buildProductRequest(
                 "Свёкла",
                 "[]",
@@ -293,11 +244,11 @@ public class ProductUpdateTest {
                 numberOfProteins,
                 1.0,
                 1.5
-        );
+        );;
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+        mockMvc.perform(post("/api/products")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation error"))
                 .andExpect(jsonPath("$.detail").value("Request body validation failed"))
@@ -311,10 +262,8 @@ public class ProductUpdateTest {
             "99.9",
             "100"
     })
-    @DisplayName("should update product with valid number of fats")
-    void shouldUpdateProductWithValidNumberOfFats(double numberOfFats) throws Exception {
-        String productId = createProductAndReturnId();
-
+    @DisplayName("should create product with valid number of fats")
+    void shouldCreateProductWithValidNumberOfFats(double numberOfFats) throws Exception {
         String requestBody = buildProductRequest(
                 "Свёкла",
                 "[]",
@@ -324,11 +273,10 @@ public class ProductUpdateTest {
                 0
         );
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId))
+        mockMvc.perform(post("/api/products")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.fats").value(numberOfFats));
     }
 
@@ -341,8 +289,6 @@ public class ProductUpdateTest {
     void shouldReturnBadRequestWhenNumberOfFatsLessThanZeroOrMoreThanOneHundred(
             double numberOfFats
     ) throws Exception {
-        String productId = createProductAndReturnId();
-
         String requestBody = buildProductRequest(
                 "Свёкла",
                 "[]",
@@ -352,9 +298,9 @@ public class ProductUpdateTest {
                 1.5
         );
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+        mockMvc.perform(post("/api/products")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestBody))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation error"))
                 .andExpect(jsonPath("$.detail").value("Request body validation failed"))
@@ -368,10 +314,8 @@ public class ProductUpdateTest {
             "99.9",
             "100"
     })
-    @DisplayName("should update product with valid number of carbs")
-    void shouldUpdateProductWithValidNumberOfCarbs(double numberOfCarbs) throws Exception {
-        String productId = createProductAndReturnId();
-
+    @DisplayName("should create product with valid number of carbs")
+    void shouldCreateProductWithValidNumberOfCarbs(double numberOfCarbs) throws Exception {
         String requestBody = buildProductRequest(
                 "Свёкла",
                 "[]",
@@ -381,11 +325,10 @@ public class ProductUpdateTest {
                 numberOfCarbs
         );
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId))
+        mockMvc.perform(post("/api/products")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.carbohydrates").value(numberOfCarbs));
     }
 
@@ -398,8 +341,6 @@ public class ProductUpdateTest {
     void shouldReturnBadRequestWhenNumberOfCarbsLessThanZeroOrMoreThanOneHundred(
             double numberOfCarbs
     ) throws Exception {
-        String productId = createProductAndReturnId();
-
         String requestBody = buildProductRequest(
                 "Свёкла",
                 "[]",
@@ -409,9 +350,9 @@ public class ProductUpdateTest {
                 numberOfCarbs
         );
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+        mockMvc.perform(post("/api/products")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation error"))
                 .andExpect(jsonPath("$.detail").value("Request body validation failed"))
@@ -425,14 +366,12 @@ public class ProductUpdateTest {
             "33.3, 33.3, 33.3",
             "40, 30, 30"
     })
-    @DisplayName("should update product with valid nutrition sum")
-    void shouldUpdateProductWithValidNutritionSum(
+    @DisplayName("should create product with valid nutrition sum")
+    void shouldCreateProductWithValidNutritionSum(
             double proteins,
             double fats,
             double carbs
     ) throws Exception {
-        String productId = createProductAndReturnId();
-
         String requestBody = buildProductRequest(
                 "Свёкла",
                 "[]",
@@ -440,20 +379,17 @@ public class ProductUpdateTest {
                 proteins,
                 fats,
                 carbs
-        );
+        );;
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId));
+        mockMvc.perform(post("/api/products")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestBody))
+                .andExpect(status().isCreated());
     }
 
     @Test
     @DisplayName("should return Bad Request when nutrition sum more than one hundred")
     void shouldReturnBadRequestWhenNutritionSumMoreThanOneHundred() throws Exception {
-        String productId = createProductAndReturnId();
-
         String requestBody = buildProductRequest(
                 "Свёкла",
                 "[]",
@@ -463,35 +399,13 @@ public class ProductUpdateTest {
                 50.0
         );
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+        mockMvc.perform(post("/api/products")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation error"))
                 .andExpect(jsonPath("$.detail")
                         .value("Proteins, fats and carbohydrates per 100g cannot exceed 100g in total"));
-    }
-
-    private String createProductAndReturnId() throws Exception {
-        String requestBody = buildProductRequest(
-                "Свёкла",
-                "[]",
-                43.0,
-                0.1,
-                1.0,
-                1.5
-        );
-
-        String response = mockMvc.perform(post("/api/products")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        JsonNode jsonNode = objectMapper.readTree(response);
-        return jsonNode.get("id").asText();
     }
 
     private String buildProductRequest(
