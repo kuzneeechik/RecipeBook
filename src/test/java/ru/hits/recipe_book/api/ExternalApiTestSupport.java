@@ -97,6 +97,32 @@ public abstract class ExternalApiTestSupport {
         return readBody(response).get("id").asText();
     }
 
+    protected String createProductAndReturnId(
+            String name,
+            double calories,
+            double proteins,
+            double fats,
+            double carbohydrates,
+            String category,
+            String cookingRequirement,
+            List<String> flags
+    ) throws Exception {
+        HttpResponse<String> response = post("/api/products", buildProductRequest(
+                name,
+                List.of(),
+                calories,
+                proteins,
+                fats,
+                carbohydrates,
+                "Тестовый продукт",
+                category,
+                cookingRequirement,
+                flags
+        ));
+        assertEquals(201, response.statusCode());
+        return readBody(response).get("id").asText();
+    }
+
     protected void createDishWithProduct(String productId, String dishName) throws Exception {
         List<Map<String, Object>> ingredients = List.of(Map.of(
                 "productId", productId,
@@ -116,6 +142,33 @@ public abstract class ExternalApiTestSupport {
                 List.of("VEGAN")
         ));
         assertEquals(201, response.statusCode());
+    }
+
+    protected String createDishAndReturnId(
+            String name,
+            Double calories,
+            Double proteins,
+            Double fats,
+            Double carbohydrates,
+            List<Map<String, Object>> ingredients,
+            double servingSizeGrams,
+            String category,
+            List<String> flags
+    ) throws Exception {
+        HttpResponse<String> response = post("/api/dishes", buildDishRequest(
+                name,
+                List.of("https://example.com/photo-1.jpg"),
+                calories,
+                proteins,
+                fats,
+                carbohydrates,
+                ingredients,
+                servingSizeGrams,
+                category,
+                flags
+        ));
+        assertEquals(201, response.statusCode());
+        return readBody(response).get("id").asText();
     }
 
     protected String buildProductRequest(
@@ -147,10 +200,10 @@ public abstract class ExternalApiTestSupport {
     protected String buildDishRequest(
             String name,
             List<String> photos,
-            double calories,
-            double proteins,
-            double fats,
-            double carbohydrates,
+            Double calories,
+            Double proteins,
+            Double fats,
+            Double carbohydrates,
             List<Map<String, Object>> ingredients,
             double servingSizeGrams,
             String category,
@@ -168,6 +221,13 @@ public abstract class ExternalApiTestSupport {
         body.put("category", category);
         body.put("flags", flags);
         return objectMapper.writeValueAsString(body);
+    }
+
+    protected Map<String, Object> ingredient(String productId, double quantityGrams) {
+        Map<String, Object> ingredient = new HashMap<>();
+        ingredient.put("productId", productId);
+        ingredient.put("quantityGrams", quantityGrams);
+        return ingredient;
     }
 
     protected List<String> buildPhotosList(int count) {
