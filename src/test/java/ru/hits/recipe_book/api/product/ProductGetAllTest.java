@@ -1,186 +1,151 @@
 package ru.hits.recipe_book.api.product;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.transaction.Transactional;
+import java.net.URLEncoder;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
+import ru.hits.recipe_book.api.ExternalApiTestSupport;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Transactional
 @DisplayName("Product get all with filtering and sorting API")
-public class ProductGetAllTest {
+public class ProductGetAllTest extends ExternalApiTestSupport {
 
-    @Autowired
-    private MockMvc mockMvc;
+    private String scopeToken;
+    private String beetName;
+    private String porkName;
+
+    @BeforeEach
+    void createProductsOnce() throws Exception {
+        scopeToken = "api-" + UUID.randomUUID().toString().substring(0, 8);
+        beetName = "Свёкла " + scopeToken;
+        porkName = "Свинина " + scopeToken;
+
+        HttpResponse<String> firstResponse = post("/api/products", buildProductRequest(
+                beetName,
+                List.of(),
+                43.0,
+                0.1,
+                1.0,
+                1.5,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
+        assertEquals(201, firstResponse.statusCode());
+
+        HttpResponse<String> secondResponse = post("/api/products", buildProductRequest(
+                porkName,
+                List.of(),
+                110.0,
+                20.0,
+                10.0,
+                11.5,
+                "Единица продукта",
+                "MEAT",
+                "READY_TO_EAT",
+                List.of("SUGAR_FREE")
+        ));
+        assertEquals(201, secondResponse.statusCode());
+    }
 
     @Test
     @DisplayName("should filter products by category")
     void shouldFilterProductsByCategory() throws Exception {
-        createProducts();
+        HttpResponse<String> response = get("/api/products?category=VEGETABLES&search=" + encodedScopeToken());
+        JsonNode body = readBody(response);
 
-        mockMvc.perform(get("/api/products")
-                .param("category", "VEGETABLES"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].name").value("Свёкла"))
-                .andExpect(jsonPath("$[0].category").value("VEGETABLES"));
+        assertEquals(200, response.statusCode());
+        assertEquals(1, body.size());
+        assertEquals(beetName, body.get(0).get("name").asText());
+        assertEquals("VEGETABLES", body.get(0).get("category").asText());
     }
 
     @Test
     @DisplayName("should filter products by cooking requirement")
     void shouldFilterProductsByCookingRequirement() throws Exception {
-        createProducts();
+        HttpResponse<String> response = get("/api/products?cookingRequirement=READY_TO_EAT&search=" + encodedScopeToken());
+        JsonNode body = readBody(response);
 
-        mockMvc.perform(get("/api/products")
-                    .param("cookingRequirement", "READY_TO_EAT"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].name").value("Свинина"))
-                .andExpect(jsonPath("$[0].cookingRequirement").value("READY_TO_EAT"));
+        assertEquals(200, response.statusCode());
+        assertEquals(1, body.size());
+        assertEquals(porkName, body.get(0).get("name").asText());
+        assertEquals("READY_TO_EAT", body.get(0).get("cookingRequirement").asText());
     }
 
     @Test
     @DisplayName("should filter products by diet flag")
     void shouldFilterProductsByDietFlag() throws Exception {
-        createProducts();
+        HttpResponse<String> response = get("/api/products?flags=VEGAN&search=" + encodedScopeToken());
+        JsonNode body = readBody(response);
 
-        mockMvc.perform(get("/api/products")
-                    .param("flags", "VEGAN"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].name").value("Свёкла"))
-                .andExpect(jsonPath("$[0].flags[0]").value("VEGAN"));
+        assertEquals(200, response.statusCode());
+        assertEquals(1, body.size());
+        assertEquals(beetName, body.get(0).get("name").asText());
+        assertContainsInAnyOrder(body.get(0).get("flags"), List.of("VEGAN"));
     }
 
     @Test
-    @DisplayName("should return Bad Request when get invalid filter field")
+    @DisplayName("should return bad request when get invalid filter field")
     void shouldReturnBadRequestWhenGetInvalidFilterField() throws Exception {
-        createProducts();
-
-        mockMvc.perform(get("/api/products")
-                        .param("cookingRequirement", "INVALID_FLAG"))
-                .andExpect(status().isBadRequest());
+        HttpResponse<String> response = get("/api/products?cookingRequirement=INVALID_FLAG&search=" + encodedScopeToken());
+        assertEquals(400, response.statusCode());
     }
 
     @Test
     @DisplayName("should search products by name ignoring case")
     void shouldSearchProductsByNameIgnoringCase() throws Exception {
-        createProducts();
+        String search = encode(porkName.toLowerCase());
 
-        mockMvc.perform(get("/api/products")
-                    .param("search", "свин"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
+        HttpResponse<String> response = get("/api/products?search=" + search);
+        JsonNode body = readBody(response);
+
+        assertEquals(200, response.statusCode());
+        assertEquals(1, body.size());
+        assertEquals(porkName, body.get(0).get("name").asText());
     }
 
     @Test
     @DisplayName("should sort products by calories descending")
     void shouldSortProductsByCaloriesDescending() throws Exception {
-        createProducts();
+        HttpResponse<String> response = get("/api/products?sortBy=calories&direction=desc&search=" + encodedScopeToken());
+        JsonNode body = readBody(response);
 
-        mockMvc.perform(get("/api/products")
-                    .param("sortBy", "calories")
-                    .param("direction", "desc"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].name").value("Свинина"))
-                .andExpect(jsonPath("$[1].name").value("Свёкла"));
+        assertEquals(200, response.statusCode());
+        assertEquals(porkName, body.get(0).get("name").asText());
+        assertEquals(beetName, body.get(1).get("name").asText());
     }
 
     @Test
-    @DisplayName("should return Bad Request when sorting by invalid field")
+    @DisplayName("should return bad request when sorting by invalid field")
     void shouldReturnBadRequestWhenSortingByInvalidField() throws Exception {
-        createProducts();
-
-        mockMvc.perform(get("/api/products")
-                    .param("sortBy", "invalid")
-                    .param("direction", "asc"))
-                .andExpect(status().isBadRequest());
+        HttpResponse<String> response = get("/api/products?sortBy=invalid&direction=asc&search=" + encodedScopeToken());
+        assertEquals(400, response.statusCode());
     }
 
-    private void createProducts() throws Exception {
-        String firstRequestBody = buildProductRequest(
-                "Свёкла",
-                43.0,
-                0.1,
-                1.0,
-                1.5,
-                "VEGETABLES",
-                "REQUIRES_COOKING",
-                "VEGAN"
-        );
+    @Test
+    @DisplayName("should return empty list when no products match search")
+    void shouldReturnEmptyListWhenNoProductsMatchSearch() throws Exception {
+        String search = encode("несуществующий-" + scopeToken);
 
-        mockMvc.perform(post("/api/products")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(firstRequestBody))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+        HttpResponse<String> response = get("/api/products?search=" + search);
+        JsonNode body = readBody(response);
 
-        String secondRequestBody = buildProductRequest(
-                "Свинина",
-                110.0,
-                20.0,
-                10.0,
-                11.5,
-                "MEAT",
-                "READY_TO_EAT",
-                "SUGAR_FREE"
-        );
-
-        mockMvc.perform(post("/api/products")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(secondRequestBody))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+        assertEquals(200, response.statusCode());
+        assertEquals(0, body.size());
     }
 
-    private String buildProductRequest(
-            String name,
-            double calories,
-            double proteins,
-            double fats,
-            double carbohydrates,
-            String category,
-            String cookingRequirement,
-            String flags
-    ) {
-        return """
-            {
-              "name": "%s",
-              "photos": [],
-              "calories": "%s",
-              "proteins": "%s",
-              "fats": "%s",
-              "carbohydrates": "%s",
-              "composition": "Единица продукта",
-              "category": "%s",
-              "cookingRequirement": "%s",
-              "flags": ["%s"]
-            }
-            """.formatted(
-                name,
-                calories,
-                proteins,
-                fats,
-                carbohydrates,
-                category,
-                cookingRequirement,
-                flags
-        );
+    private String encodedScopeToken() {
+        return encode(scopeToken);
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }

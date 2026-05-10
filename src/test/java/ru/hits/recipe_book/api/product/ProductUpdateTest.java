@@ -1,95 +1,73 @@
 package ru.hits.recipe_book.api.product;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.transaction.Transactional;
+import java.net.http.HttpResponse;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
+import ru.hits.recipe_book.api.ExternalApiTestSupport;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-@SpringBootTest
-@AutoConfigureMockMvc
-@Transactional
 @DisplayName("Product update API")
-public class ProductUpdateTest {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
+public class ProductUpdateTest extends ExternalApiTestSupport {
 
     @Test
     @DisplayName("should update product with valid data")
     void shouldUpdateProductWithValidData() throws Exception {
         String productId = createProductAndReturnId();
 
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 "Свёкла",
-                "[\"https://example.com/photo-1.jpg\"]",
+                List.of("https://example.com/photo-1.jpg"),
                 43.0,
                 0.1,
                 1.0,
-                1.5
-        );
+                1.5,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN", "GLUTEN_FREE", "SUGAR_FREE")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId))
-                .andExpect(jsonPath("$.name").value("Свёкла"))
-                .andExpect(jsonPath("$.photos").isArray())
-                .andExpect(jsonPath("$.photos.length()").value(1))
-                .andExpect(jsonPath("$.photos[0]").value("https://example.com/photo-1.jpg"))
-                .andExpect(jsonPath("$.calories").value(43.0))
-                .andExpect(jsonPath("$.proteins").value(0.1))
-                .andExpect(jsonPath("$.fats").value(1.0))
-                .andExpect(jsonPath("$.carbohydrates").value(1.5))
-                .andExpect(jsonPath("$.composition").value("Единица продукта"))
-                .andExpect(jsonPath("$.category").value("VEGETABLES"))
-                .andExpect(jsonPath("$.cookingRequirement").value("REQUIRES_COOKING"))
-                .andExpect(jsonPath("$.flags").isArray())
-                .andExpect(jsonPath("$.flags.length()").value(3))
-                .andExpect(jsonPath("$.flags").value(org.hamcrest.Matchers.containsInAnyOrder(
-                        "VEGAN",
-                        "GLUTEN_FREE",
-                        "SUGAR_FREE"
-                )));
+        JsonNode body = readBody(response);
+
+        assertEquals(200, response.statusCode());
+        assertEquals(productId, body.get("id").asText());
+        assertEquals("Свёкла", body.get("name").asText());
+        assertEquals(1, body.get("photos").size());
+        assertEquals("https://example.com/photo-1.jpg", body.get("photos").get(0).asText());
+        assertEquals(43.0, body.get("calories").asDouble());
+        assertEquals(0.1, body.get("proteins").asDouble());
+        assertEquals(1.0, body.get("fats").asDouble());
+        assertEquals(1.5, body.get("carbohydrates").asDouble());
+        assertEquals("Единица продукта", body.get("composition").asText());
+        assertEquals("VEGETABLES", body.get("category").asText());
+        assertEquals("REQUIRES_COOKING", body.get("cookingRequirement").asText());
+        assertContainsInAnyOrder(body.get("flags"), List.of("VEGAN", "GLUTEN_FREE", "SUGAR_FREE"));
     }
 
     @Test
-    @DisplayName("should return Not Found when updating unknown product")
+    @DisplayName("should return not found when updating unknown product")
     void shouldReturnNotFoundWhenUpdatingUnknownProduct() throws Exception {
-        String id = UUID.randomUUID().toString();
-
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + UUID.randomUUID(), buildProductRequest(
                 "Свёкла",
-                "[]",
+                List.of(),
                 43.0,
                 0.1,
                 1.0,
-                1.5
-        );
+                1.5,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", id)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isNotFound());
+        assertEquals(404, response.statusCode());
     }
 
     @ParameterizedTest
@@ -98,49 +76,53 @@ public class ProductUpdateTest {
             "Мак"
     })
     @DisplayName("should update product with valid name length")
-    void shouldUpdateProductWithValidName(
-            String name
-    ) throws Exception {
+    void shouldUpdateProductWithValidName(String name) throws Exception {
         String productId = createProductAndReturnId();
 
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 name,
-                "[]",
+                List.of(),
                 43.0,
                 0.1,
                 1.0,
-                1.5
-        );
+                1.5,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId))
-                .andExpect(jsonPath("$.name").value(name));
+        JsonNode body = readBody(response);
+
+        assertEquals(200, response.statusCode());
+        assertEquals(productId, body.get("id").asText());
+        assertEquals(name, body.get("name").asText());
     }
 
     @Test
-    @DisplayName("should return Bad Request when name length less than two")
+    @DisplayName("should return bad request when name length less than two")
     void shouldReturnBadRequestWhenNameLengthLessThanTwo() throws Exception {
         String productId = createProductAndReturnId();
 
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 "Я",
-                "[]",
+                List.of(),
                 43.0,
                 0.1,
                 1.0,
-                1.5
-        );
+                1.5,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Validation error"))
-                .andExpect(jsonPath("$.detail").value("Request body validation failed"))
-                .andExpect(jsonPath("$.errors.name").exists());
+        JsonNode body = readBody(response);
+
+        assertEquals(400, response.statusCode());
+        assertEquals("Validation error", body.get("title").asText());
+        assertEquals("Request body validation failed", body.get("detail").asText());
+        assertTrue(body.get("errors").has("name"));
     }
 
     @ParameterizedTest
@@ -153,49 +135,52 @@ public class ProductUpdateTest {
     @DisplayName("should update product with valid number of photos")
     void shouldUpdateProductWithValidNumberOfPhotos(int numberOfPhotos) throws Exception {
         String productId = createProductAndReturnId();
+        List<String> expectedPhotos = buildPhotosList(numberOfPhotos);
 
-        var expectedPhotos = buildExpectedPhotosList(numberOfPhotos);
-
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 "Свёкла",
-                buildPhotosList(numberOfPhotos),
+                expectedPhotos,
                 43.0,
                 0.1,
                 1.0,
-                1.5
-        );
+                1.5,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId))
-                .andExpect(jsonPath("$.photos").isArray())
-                .andExpect(jsonPath("$.photos.length()").value(numberOfPhotos))
-                .andExpect(jsonPath("$.photos").value(expectedPhotos));
+        JsonNode body = readBody(response);
+
+        assertEquals(200, response.statusCode());
+        assertEquals(numberOfPhotos, body.get("photos").size());
+        assertContainsExactly(body.get("photos"), expectedPhotos);
     }
 
     @Test
-    @DisplayName("should return Bad Request when number of photos more than five")
+    @DisplayName("should return bad request when number of photos more than five")
     void shouldReturnBadRequestWhenNumberOfPhotosMoreThanFive() throws Exception {
         String productId = createProductAndReturnId();
 
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 "Свёкла",
                 buildPhotosList(6),
                 43.0,
                 0.1,
                 1.0,
-                1.5
-        );
+                1.5,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Validation error"))
-                .andExpect(jsonPath("$.detail").value("Request body validation failed"))
-                .andExpect(jsonPath("$.errors.photos").exists());
+        JsonNode body = readBody(response);
+
+        assertEquals(400, response.statusCode());
+        assertEquals("Validation error", body.get("title").asText());
+        assertEquals("Request body validation failed", body.get("detail").asText());
+        assertTrue(body.get("errors").has("photos"));
     }
 
     @ParameterizedTest
@@ -207,44 +192,49 @@ public class ProductUpdateTest {
     void shouldUpdateProductWithValidNumberOfCalories(double numberOfCalories) throws Exception {
         String productId = createProductAndReturnId();
 
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 "Свёкла",
-                "[]",
+                List.of(),
                 numberOfCalories,
                 0.1,
                 1.0,
-                1.5
-        );
+                1.5,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId))
-                .andExpect(jsonPath("$.calories").value(numberOfCalories));
+        JsonNode body = readBody(response);
+
+        assertEquals(200, response.statusCode());
+        assertEquals(numberOfCalories, body.get("calories").asDouble());
     }
 
     @Test
-    @DisplayName("should return Bad Request when number of calories less than zero")
+    @DisplayName("should return bad request when number of calories less than zero")
     void shouldReturnBadRequestWhenNumberOfCaloriesLessThanZero() throws Exception {
         String productId = createProductAndReturnId();
 
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 "Свёкла",
-                "[]",
-                -1,
+                List.of(),
+                -1.0,
                 0.1,
                 1.0,
-                1.5
-        );
+                1.5,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Validation error"))
-                .andExpect(jsonPath("$.detail").value("Request body validation failed"))
-                .andExpect(jsonPath("$.errors.calories").exists());
+        JsonNode body = readBody(response);
+
+        assertEquals(400, response.statusCode());
+        assertEquals("Validation error", body.get("title").asText());
+        assertEquals("Request body validation failed", body.get("detail").asText());
+        assertTrue(body.get("errors").has("calories"));
     }
 
     @ParameterizedTest
@@ -258,21 +248,23 @@ public class ProductUpdateTest {
     void shouldUpdateProductWithValidNumberOfProteins(double numberOfProteins) throws Exception {
         String productId = createProductAndReturnId();
 
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 "Свёкла",
-                "[]",
+                List.of(),
                 43.0,
                 numberOfProteins,
-                0,
-                0
-        );
+                0.0,
+                0.0,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId))
-                .andExpect(jsonPath("$.proteins").value(numberOfProteins));
+        JsonNode body = readBody(response);
+
+        assertEquals(200, response.statusCode());
+        assertEquals(numberOfProteins, body.get("proteins").asDouble());
     }
 
     @ParameterizedTest
@@ -280,28 +272,29 @@ public class ProductUpdateTest {
             "-1",
             "100.1"
     })
-    @DisplayName("should return Bad Request when number of proteins less than zero or more than one hundred")
-    void shouldReturnBadRequestWhenNumberOfProteinsLessThanZeroOrMoreThanOneHundred(
-            double numberOfProteins
-    ) throws Exception {
+    @DisplayName("should return bad request when number of proteins less than zero or more than one hundred")
+    void shouldReturnBadRequestWhenNumberOfProteinsLessThanZeroOrMoreThanOneHundred(double numberOfProteins) throws Exception {
         String productId = createProductAndReturnId();
 
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 "Свёкла",
-                "[]",
+                List.of(),
                 43.0,
                 numberOfProteins,
                 1.0,
-                1.5
-        );
+                1.5,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Validation error"))
-                .andExpect(jsonPath("$.detail").value("Request body validation failed"))
-                .andExpect(jsonPath("$.errors.proteins").exists());
+        JsonNode body = readBody(response);
+
+        assertEquals(400, response.statusCode());
+        assertEquals("Validation error", body.get("title").asText());
+        assertEquals("Request body validation failed", body.get("detail").asText());
+        assertTrue(body.get("errors").has("proteins"));
     }
 
     @ParameterizedTest
@@ -315,21 +308,23 @@ public class ProductUpdateTest {
     void shouldUpdateProductWithValidNumberOfFats(double numberOfFats) throws Exception {
         String productId = createProductAndReturnId();
 
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 "Свёкла",
-                "[]",
+                List.of(),
                 43.0,
-                0,
+                0.0,
                 numberOfFats,
-                0
-        );
+                0.0,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId))
-                .andExpect(jsonPath("$.fats").value(numberOfFats));
+        JsonNode body = readBody(response);
+
+        assertEquals(200, response.statusCode());
+        assertEquals(numberOfFats, body.get("fats").asDouble());
     }
 
     @ParameterizedTest
@@ -337,28 +332,29 @@ public class ProductUpdateTest {
             "-1",
             "100.1"
     })
-    @DisplayName("should return Bad Request when number of fats less than zero or more than one hundred")
-    void shouldReturnBadRequestWhenNumberOfFatsLessThanZeroOrMoreThanOneHundred(
-            double numberOfFats
-    ) throws Exception {
+    @DisplayName("should return bad request when number of fats less than zero or more than one hundred")
+    void shouldReturnBadRequestWhenNumberOfFatsLessThanZeroOrMoreThanOneHundred(double numberOfFats) throws Exception {
         String productId = createProductAndReturnId();
 
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 "Свёкла",
-                "[]",
+                List.of(),
                 43.0,
                 0.1,
                 numberOfFats,
-                1.5
-        );
+                1.5,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Validation error"))
-                .andExpect(jsonPath("$.detail").value("Request body validation failed"))
-                .andExpect(jsonPath("$.errors.fats").exists());
+        JsonNode body = readBody(response);
+
+        assertEquals(400, response.statusCode());
+        assertEquals("Validation error", body.get("title").asText());
+        assertEquals("Request body validation failed", body.get("detail").asText());
+        assertTrue(body.get("errors").has("fats"));
     }
 
     @ParameterizedTest
@@ -372,21 +368,23 @@ public class ProductUpdateTest {
     void shouldUpdateProductWithValidNumberOfCarbs(double numberOfCarbs) throws Exception {
         String productId = createProductAndReturnId();
 
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 "Свёкла",
-                "[]",
+                List.of(),
                 43.0,
-                0,
-                0,
-                numberOfCarbs
-        );
+                0.0,
+                0.0,
+                numberOfCarbs,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId))
-                .andExpect(jsonPath("$.carbohydrates").value(numberOfCarbs));
+        JsonNode body = readBody(response);
+
+        assertEquals(200, response.statusCode());
+        assertEquals(numberOfCarbs, body.get("carbohydrates").asDouble());
     }
 
     @ParameterizedTest
@@ -394,28 +392,29 @@ public class ProductUpdateTest {
             "-1",
             "100.1"
     })
-    @DisplayName("should return Bad Request when number of carbs less than zero or more than one hundred")
-    void shouldReturnBadRequestWhenNumberOfCarbsLessThanZeroOrMoreThanOneHundred(
-            double numberOfCarbs
-    ) throws Exception {
+    @DisplayName("should return bad request when number of carbs less than zero or more than one hundred")
+    void shouldReturnBadRequestWhenNumberOfCarbsLessThanZeroOrMoreThanOneHundred(double numberOfCarbs) throws Exception {
         String productId = createProductAndReturnId();
 
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 "Свёкла",
-                "[]",
+                List.of(),
                 43.0,
                 0.1,
                 1.0,
-                numberOfCarbs
-        );
+                numberOfCarbs,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Validation error"))
-                .andExpect(jsonPath("$.detail").value("Request body validation failed"))
-                .andExpect(jsonPath("$.errors.carbohydrates").exists());
+        JsonNode body = readBody(response);
+
+        assertEquals(400, response.statusCode());
+        assertEquals("Validation error", body.get("title").asText());
+        assertEquals("Request body validation failed", body.get("detail").asText());
+        assertTrue(body.get("errors").has("carbohydrates"));
     }
 
     @ParameterizedTest
@@ -426,122 +425,50 @@ public class ProductUpdateTest {
             "40, 30, 30"
     })
     @DisplayName("should update product with valid nutrition sum")
-    void shouldUpdateProductWithValidNutritionSum(
-            double proteins,
-            double fats,
-            double carbs
-    ) throws Exception {
+    void shouldUpdateProductWithValidNutritionSum(double proteins, double fats, double carbs) throws Exception {
         String productId = createProductAndReturnId();
 
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 "Свёкла",
-                "[]",
+                List.of(),
                 43.0,
                 proteins,
                 fats,
-                carbs
-        );
+                carbs,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(productId));
+        JsonNode body = readBody(response);
+
+        assertEquals(200, response.statusCode());
+        assertEquals(productId, body.get("id").asText());
     }
 
     @Test
-    @DisplayName("should return Bad Request when nutrition sum more than one hundred")
+    @DisplayName("should return bad request when nutrition sum more than one hundred")
     void shouldReturnBadRequestWhenNutritionSumMoreThanOneHundred() throws Exception {
         String productId = createProductAndReturnId();
 
-        String requestBody = buildProductRequest(
+        HttpResponse<String> response = put("/api/products/" + productId, buildProductRequest(
                 "Свёкла",
-                "[]",
+                List.of(),
                 43.0,
                 50.0,
                 50.0,
-                50.0
-        );
+                50.0,
+                "Единица продукта",
+                "VEGETABLES",
+                "REQUIRES_COOKING",
+                List.of("VEGAN")
+        ));
 
-        mockMvc.perform(put("/api/products/{id}", productId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Validation error"))
-                .andExpect(jsonPath("$.detail")
-                        .value("Proteins, fats and carbohydrates per 100g cannot exceed 100g in total"));
-    }
+        JsonNode body = readBody(response);
 
-    private String createProductAndReturnId() throws Exception {
-        String requestBody = buildProductRequest(
-                "Свёкла",
-                "[]",
-                43.0,
-                0.1,
-                1.0,
-                1.5
-        );
-
-        String response = mockMvc.perform(post("/api/products")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        JsonNode jsonNode = objectMapper.readTree(response);
-        return jsonNode.get("id").asText();
-    }
-
-    private String buildProductRequest(
-            String name,
-            String photos,
-            double calories,
-            double proteins,
-            double fats,
-            double carbohydrates
-    ) {
-        return """
-            {
-              "name": "%s",
-              "photos": %s,
-              "calories": %s,
-              "proteins": %s,
-              "fats": %s,
-              "carbohydrates": %s,
-              "composition": "Единица продукта",
-              "category": "VEGETABLES",
-              "cookingRequirement": "REQUIRES_COOKING",
-              "flags": ["VEGAN", "GLUTEN_FREE", "SUGAR_FREE"]
-            }
-            """.formatted(
-                name,
-                photos,
-                calories,
-                proteins,
-                fats,
-                carbohydrates
-        );
-    }
-
-    private String buildPhotosList(int number) {
-        var photos = new ArrayList<String>();
-
-        for (int i = 0; i < number; i++) {
-            photos.add("\"https://example.com/photo-" + i + ".jpg\"");
-        }
-
-        return "[" + String.join(", ", photos) + "]";
-    }
-
-    private List<String> buildExpectedPhotosList(int number) {
-        var photos = new ArrayList<String>();
-
-        for (int i = 0; i < number; i++) {
-            photos.add("https://example.com/photo-" + i + ".jpg");
-        }
-
-        return photos;
+        assertEquals(400, response.statusCode());
+        assertEquals("Validation error", body.get("title").asText());
+        assertEquals("Proteins, fats and carbohydrates per 100g cannot exceed 100g in total", body.get("detail").asText());
     }
 }
